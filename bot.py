@@ -7,13 +7,11 @@ import aiohttp
 import yt_dlp
 import datetime
 
-# Configuration variables
 TOKEN = os.environ.get("DISCORD_TOKEN")
 PREFIX = "!"
 WELCOME_CHANNEL_NAME = "genel"
 AI_CHAT_CHANNEL_NAME = "tuffai-sohbet"
 
-# Bot setup with required intents
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -252,10 +250,17 @@ class GiveawayButtonView(discord.ui.View):
         super().__init__(timeout=None)
         self.message_id = message_id
         self.lang_code = lang_code
-        self.join_button.label = LANG_PACKS[lang_code]["join_btn"]
+        
+        # We correctly dynamically generate the button instance here
+        self.btn = discord.ui.Button(
+            label=LANG_PACKS[lang_code]["join_btn"],
+            style=discord.ButtonStyle.green,
+            custom_id="giveaway_join_btn"
+        )
+        self.btn.callback = self.join_button_callback
+        self.add_item(self.btn)
 
-    @discord.ui.button(label="🎟️ Join", style=discord.ButtonStyle.green, custom_id="giveaway_join_btn")
-    async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def join_button_callback(self, interaction: discord.Interaction):
         lang = LANG_PACKS[self.lang_code]
         if self.message_id not in giveaways_database:
             return await interaction.response.send_message("❌", ephemeral=True)
@@ -268,56 +273,6 @@ class GiveawayButtonView(discord.ui.View):
         embed = interaction.message.embeds[0]
         embed.set_field_at(3, name=f"👥 {lang['participants']}", value=str(len(data["participants_list"])), inline=True)
         await interaction.message.edit(embed=embed)
-
-@bot.command(name="çekiliş", aliases=["cekilisbaslat", "giveaway"])
-@commands.has_permissions(manage_guild=True)
-async def cekilisbaslat(ctx, duration_minutes: int, winners_count: int, lang_code: str = "tr", *, prize_text: str):
-    if lang_code not in LANG_PACKS:
-        lang_code = "tr"
-    lang = LANG_PACKS[lang_code]
-    end_timestamp = discord.utils.utcnow().timestamp() + duration_minutes * 60
-
-    embed = discord.Embed(title=lang["title"], color=discord.Color.gold())
-    embed.add_field(name=f"🎁 {lang['prize']}", value=prize_text, inline=False)
-    embed.add_field(name=f"⏱️ {lang['duration']}", value=f"{duration_minutes} {lang['min_unit']}", inline=True)
-    embed.add_field(name=f"🏆 {lang['winner_count']}", value=str(winners_count), inline=True)
-    embed.add_field(name=f"👥 {lang['participants']}", value="0", inline=True)
-    embed.set_footer(text=lang["footer"])
-    embed.timestamp = discord.utils.utcnow()
-
-    view = GiveawayButtonView(None, lang_code)
-    msg = await ctx.send(embed=embed, view=view)
-    view.message_id = msg.id
-
-    giveaways_database[msg.id] = {
-        "participants_list": set(),
-        "winners_count": winners_count,
-        "end_timestamp": end_timestamp,
-        "lang_code": lang_code,
-        "text_channel": ctx.channel,
-        "prize_text": prize_text,
-        "msg_object": msg,
-    }
-
-    await asyncio.sleep(duration_minutes * 60)
-
-    data = giveaways_database.pop(msg.id, None)
-    if not data:
-        return
-    lang = LANG_PACKS[data["lang_code"]]
-    final_list = list(data["participants_list"])
-    if not final_list:
-        winners_mention_string = lang["no_winner"]
-    else:
-        selected_winners = random.sample(final_list, min(data["winners_count"], len(final_list)))
-        winners_mention_string = " ".join(f"<@{u}>" for u in selected_winners)
-
-    embed2 = discord.Embed(title=lang["ended"], color=discord.Color.red())
-    embed2.add_field(name=f"🎁 {lang['prize']}", value=data["prize_text"], inline=False)
-    embed2.add_field(name=f"🏆 {lang['winners']}", value=winners_mention_string, inline=False)
-    embed2.timestamp = discord.utils.utcnow()
-    await data["msg_object"].edit(embed=embed2, view=None)
-    await data["text_channel"].send(f"🎉 {lang['ended']} | {lang['prize']}: **{data['prize_text']}** | {lang['winners']}: {winners_mention_string}")
 
 polls_database = {}
 
@@ -468,4 +423,56 @@ async def trivia(ctx):
     await ctx.send(embed=embed)
 
     def check_message(m):
-        return m.channel == ctx.channel and not m.a
+        return m.channel == ctx.channel and not m.author.bot
+
+    try:
+        incoming_message = await bot.wait_for("message", timeout=30.0, check=check_message)
+        if incoming_message.content.lower() == answer.lower():
+            await ctx.send(f"✅ **{incoming_message.author.mention} got it right!** Answer: **{answer}**")
+        else:
+            await ctx.send(f"❌ Incorrect! Correct answer was: **{answer}**")
+    except asyncio.TimeoutError:
+        await ctx.send(f"⏰ Time is up! Correct answer was: **{answer}**")
+
+@bot.command(name="8top", aliases=["8ball"])
+async def sekiz_top(ctx, *, question):
+    answers_pool = [
+        "✅ Definitely yes!", "✅ Yes.", "✅ Most likely.",
+        "🤔 I'm not sure.", "🤔 Uncertain.",
+        "❌ I don't think so.", "❌ No.", "❌ Absolutely not!"
+    ]
+    await ctx.send(f"🎱 **{random.choice(answers_pool)}**")
+
+@bot.command(name="sor")
+async def sor(ctx, *, query):
+    async with ctx.typing():
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"https://api.lolhuman.xyz/api/openai?apikey=free&text={query}") as resp:
+                    reply_text = await resp.text()
+                    embed = discord.Embed(
+                        title="🤖 TuffAI Response",
+                        description=reply_text[:4000],
+                        color=discord.Color.blurple()
+                    )
+                    embed.set_footer(text=f"Asked by: {message.author if 'message' in locals() else ctx.author}")
+                    await ctx.send(embed=embed)
+        except Exception:
+            await ctx.send("❌ TuffAI is currently unable to process your request.")
+
+@bot.command()
+async def ping(ctx):
+    await ctx.send(f"🏓 **{round(bot.latency * 1000)}ms**")
+
+@bot.command(name="sunucu", aliases=["server"])
+async def sunucu(ctx):
+    guild = ctx.guild
+    embed = discord.Embed(title=guild.name, color=discord.Color.blurple())
+    embed.add_field(name="👥 Total Members", value=guild.member_count)
+    embed.add_field(name="📅 Created On", value=guild.created_at.strftime("%d/%m/%Y"))
+    embed.add_field(name="👑 Owner", value=guild.owner)
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+    await ctx.send(embed=embed)
+
+@bot.command(name="kullan
