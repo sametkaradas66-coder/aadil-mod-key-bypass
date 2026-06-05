@@ -4,7 +4,7 @@ import requests
 import json
 import os
 
-DISCORD_TOKEN = "BURAYA_DISCORD_TOKEN"
+DISCORD_TOKEN = "MTQ3NTE4MzkzNzUyODc5NTM1Nw.GV7ilE.66cFOYunYKTf5ZxwdEr9yfA2PllQu0QoOmFtIc"
 
 intents = discord.Intents.default()
 intents.message_content = True
