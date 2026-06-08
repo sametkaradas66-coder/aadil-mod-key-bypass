@@ -59,7 +59,7 @@ async def botinfo(interaction: discord.Interaction):
     embed.set_thumbnail(url=bot.user.display_avatar.url)
     embed.add_field(name="🌍 Sunucu", value=len(bot.guilds))
     embed.add_field(name="👥 Kullanıcı", value=len(bot.users))
-    embed.add_field(name="🏓 Ping", value=f"{round(bot.latency*1000)}ms")
+    embed.add_field(name="🛜 Ping", value=f"{round(bot.latency*1000)}ms")
     await interaction.response.send_message(embed=embed)
 
 # ---------- GIVEAWAY ----------
@@ -149,7 +149,7 @@ async def cekilis(
 
 @bot.tree.command(name="ping")
 async def ping(interaction: discord.Interaction):
-    embed = discord.Embed(title="🏓 Pong!", description=f"{round(bot.latency*1000)}ms", color=discord.Color.blurple())
+    embed = discord.Embed(title="🛜 Ping!", description=f"{round(bot.latency*1000)}ms", color=discord.Color.blurple())
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="zar")
@@ -300,7 +300,7 @@ class HelpView(discord.ui.View):
         super().__init__()
         self.add_item(HelpSelect())
 
-@bot.tree.command(name="yardimv2")
+@bot.tree.command(name="yardim")
 async def yardimv2(interaction: discord.Interaction):
     embed = discord.Embed(
         title="📚 Yardım Menüsü",
